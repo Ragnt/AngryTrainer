@@ -21,7 +21,7 @@ use attack::{
 use chrono::Local;
 use libc::EXIT_FAILURE;
 use libwifi::frame::components::{MacAddress, RsnAkmSuite, RsnCipherSuite, WpaAkmSuite};
-use libwifi::frame::{DataFrame, EapolKey, NullDataFrame};
+use libwifi::frame::{DataFrame, DeauthenticationReason, EapolKey, NullDataFrame};
 use nix::unistd::geteuid;
 
 use nl80211_ng::attr::Nl80211Iftype;
@@ -99,6 +99,10 @@ struct Arguments {
     #[arg(long, conflicts_with_all(vec!["csa", "anon_reassoc", "rogue", "pmkid", "deauth_all"]))]
     /// Attack - Send a deauth to a client MAC.
     deauth_client: Option<String>,
+
+    #[arg(long, conflicts_with_all(vec!["csa", "anon_reassoc", "rogue", "pmkid", "deauth_client"]))]
+    /// Attack - Which Deauthenticaation Reason Code to use.
+    deauth_code: Option<u16>,
 
     #[arg(long, conflicts_with_all(vec!["deauth_all", "anon_reassoc", "rogue", "pmkid", "deauth_client"]))]
     /// Attack - Tx MAC for rogue-based attacks - will randomize if excluded.
@@ -205,7 +209,7 @@ pub struct FileData {
     current_pcap: PcapWriter,
     output_files: Vec<String>,
 }
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum AttackType {
     Deauthentication,
     ChannelSwitch,
@@ -227,6 +231,7 @@ pub struct OxideRuntime {
     if_hardware: IfHardware,
     attack_type: AttackType,
     deauth_target: Option<MacAddress>,
+    deauth_code: DeauthenticationReason,
 }
 
 impl OxideRuntime {
@@ -258,11 +263,25 @@ impl OxideRuntime {
             AttackType::None
         };
 
+        let reason_code = if attack_type == AttackType::Deauthentication {
+            if let Some(code) = cli_args.deauth_code {
+                let mut reason = DeauthenticationReason::from_code(code);
+                if reason == DeauthenticationReason::Unknown {
+                    reason = DeauthenticationReason::Class3FrameReceivedFromNonassociatedSTA;
+                }
+                reason
+            } else {
+                DeauthenticationReason::Class3FrameReceivedFromNonassociatedSTA
+            }
+        } else {
+            DeauthenticationReason::Class3FrameReceivedFromNonassociatedSTA
+        };
+
         // Setup initial lists / logs
         let access_points = WiFiDeviceList::new();
         let unassoc_clients = WiFiDeviceList::new();
         let handshake_storage = HandshakeStorage::new();
-        let mut log = status::MessageLog::new();
+        let log = status::MessageLog::new();
 
         // Get + Setup Interface
 
@@ -505,6 +524,18 @@ impl OxideRuntime {
         // Setup Rogue_ESSID's tracker
         let rogue_essids: HashMap<MacAddress, String> = HashMap::new();
 
+        println!();
+        println!("======== Summary ========");
+        println!("☠️ Attack Type: {:?}", attack_type);
+        println!("⚔️ Attack Target: {}", cli_args.target);
+        if let Some(target) = deauth_target {
+            println!("👽 Attack Client: {}", target);
+        }
+        if attack_type == AttackType::Deauthentication {
+            println!("🤖 Deauthentication Code: {:?}", reason_code)
+        }
+
+        println!();
         println!("🎩 KICKING UP THE 4D3D3D3 🎩");
         println!();
         println!("======================================================================");
@@ -545,6 +576,7 @@ impl OxideRuntime {
             status_log: log,
             attack_type,
             deauth_target,
+            deauth_code: reason_code,
         }
     }
 

