@@ -8,7 +8,7 @@ All attacks are exclusive - you can only select one.
 
 ### Help
 
-```
+```python
 Usage: angrytrainer [OPTIONS] --interface <INTERFACE> --target <TARGET>
 
 Options:
