@@ -4,6 +4,8 @@ This is an easy to use, simple version of AngryOxide that fires one-shot attacks
 
 Hint: Open WireShark on the same interface this is running to watch the traffic.
 
+All attacks are exclusive - you can only select one.
+
 ```python
 Usage: angrytrainer [OPTIONS] --interface <INTERFACE> --target <TARGET>
 
